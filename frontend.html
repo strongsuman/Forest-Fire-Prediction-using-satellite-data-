@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>🔥 Forest Fire Prediction</title>
+
+<style>
+  /* ── Reset & Base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(160deg, #0f172a 0%, #1e3a5f 60%, #0f172a 100%);
+    min-height: 100vh;
+    color: #e2e8f0;
+    overflow-x: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    padding: 36px 20px 10px;
+    text-align: center;
+  }
+  header h1 {
+    font-size: clamp(1.5rem, 4vw, 2.2rem);
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  header p {
+    margin-top: 6px;
+    color: #94a3b8;
+    font-size: 0.9rem;
+  }
+
+  /* ── Card ── */
+  .card {
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px;
+    padding: 32px 28px;
+    width: min(400px, 92vw);
+    margin: 32px auto 80px;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+    transition: box-shadow 0.4s ease;
+  }
+
+  /* ── Form ── */
+  .field { margin-bottom: 16px; }
+  label  { display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 5px; }
+
+  input, select {
+    width: 100%;
+    padding: 11px 14px;
+    border-radius: 10px;
+    border: 1.5px solid rgba(255,255,255,0.1);
+    background: #1e293b;
+    color: #e2e8f0;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus, select:focus { border-color: #f97316; }
+  select option { background: #1e293b; }
+
+  /* ── Button ── */
+  .btn {
+    width: 100%;
+    padding: 13px;
+    margin-top: 6px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #ea580c, #dc2626);
+    color: #fff;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+  }
+  .btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(234, 88, 12, 0.45);
+  }
+  .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  /* ── Result Panel ── */
+  .result {
+    margin-top: 22px;
+    padding: 18px 16px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    font-size: 0.9rem;
+    line-height: 1.8;
+    display: none;
+  }
+  .result.visible { display: block; }
+
+  .result-row { display: flex; justify-content: space-between; align-items: center; }
+  .result-label { color: #94a3b8; }
+  .result-value { font-weight: 600; }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.85rem;
+  }
+  .badge-low    { background: rgba(34,197,94,0.15);  color: #22c55e; border: 1px solid #22c55e; }
+  .badge-medium { background: rgba(250,204,21,0.15); color: #facc15; border: 1px solid #facc15; }
+  .badge-high   { background: rgba(239,68,68,0.15);  color: #ef4444; border: 1px solid #ef4444; }
+
+  .divider { border: none; border-top: 1px solid rgba(255,255,255,0.07); margin: 10px 0; }
+
+  .error-msg { color: #f87171; font-size: 0.88rem; margin-top: 10px; display: none; }
+  .error-msg.visible { display: block; }
+
+  /* ── Threshold legend ── */
+  .legend {
+    margin-top: 14px;
+    font-size: 0.78rem;
+    color: #64748b;
+    text-align: center;
+  }
+
+  /* ── Fire Glow ── */
+  .fire-glow {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 180px;
+    background: linear-gradient(to top, rgba(234,88,12,0.3), transparent);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Embers ── */
+  .ember {
+    position: fixed;
+    bottom: -10px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    opacity: 0;
+    pointer-events: none;
+    animation: rise linear infinite;
+    z-index: 1;
+  }
+  @keyframes rise {
+    0%   { transform: translateY(0)     scale(1);   opacity: 0.9; }
+    80%  { opacity: 0.5; }
+    100% { transform: translateY(-420px) scale(0.2); opacity: 0; }
+  }
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>🔥 Forest Fire Prediction System</h1>
+  <p>Satellite-based fire radiative power (FRP) estimation — Madhya Pradesh</p>
+</header>
+
+<div class="card" id="card">
+
+  <div class="field">
+    <label for="lat">📍 Latitude</label>
+    <input id="lat" type="number" step="any" placeholder="e.g. 23.5  (17 – 27)" />
+  </div>
+
+  <div class="field">
+    <label for="lon">📍 Longitude</label>
+    <input id="lon" type="number" step="any" placeholder="e.g. 78.2  (74 – 85)" />
+  </div>
+
+  <div class="field">
+    <label for="daynight">🕐 Time of observation</label>
+    <select id="daynight">
+      <option value="1">🌞 Daytime</option>
+      <option value="0">🌙 Nighttime</option>
+    </select>
+  </div>
+
+  <button class="btn" id="btn" onclick="predict()">🔥 Predict Fire Risk</button>
+
+  <div class="error-msg" id="errorMsg"></div>
+
+  <div class="result" id="result">
+    <div class="result-row">
+      <span class="result-label">📍 Location</span>
+      <span class="result-value" id="res-location">—</span>
+    </div>
+    <hr class="divider" />
+    <div class="result-row">
+      <span class="result-label">🔥 Predicted FRP</span>
+      <span class="result-value" id="res-frp">—</span>
+    </div>
+    <div class="result-row">
+      <span class="result-label">📡 Nearest Actual FRP</span>
+      <span class="result-value" id="res-actual">—</span>
+    </div>
+    <div class="result-row">
+      <span class="result-label">🗓️ Reference Date</span>
+      <span class="result-value" id="res-date">—</span>
+    </div>
+    <hr class="divider" />
+    <div class="result-row">
+      <span class="result-label">⚠️ Fire Risk Level</span>
+      <span id="res-badge">—</span>
+    </div>
+  </div>
+
+  <div class="legend" id="legend" style="display:none;">
+    Thresholds: Low &lt; <span id="thr-q1">—</span> MW &nbsp;|&nbsp;
+    Medium &lt; <span id="thr-q2">—</span> MW &nbsp;|&nbsp; High ≥ <span id="thr-q2b">—</span> MW
+  </div>
+
+</div>
+
+<div class="fire-glow"></div>
+
+<script>
+  /* ── Ember particles ── */
+  const COLORS = ['#f97316','#fb923c','#fbbf24','#ef4444'];
+
+  function spawnEmber() {
+    const e = document.createElement('div');
+    e.className = 'ember';
+    e.style.left     = Math.random() * window.innerWidth + 'px';
+    e.style.animationDuration = (3 + Math.random() * 4) + 's';
+    e.style.animationDelay   = (Math.random() * 1.5) + 's';
+    e.style.background = COLORS[Math.floor(Math.random() * COLORS.length)];
+    e.style.width  = (3 + Math.random() * 4) + 'px';
+    e.style.height = e.style.width;
+    document.body.appendChild(e);
+    setTimeout(() => e.remove(), 7500);
+  }
+  setInterval(spawnEmber, 200);
+
+  /* ── Prediction ── */
+  async function predict() {
+    const lat      = parseFloat(document.getElementById('lat').value);
+    const lon      = parseFloat(document.getElementById('lon').value);
+    const daynight = parseInt(document.getElementById('daynight').value);
+
+    const btn      = document.getElementById('btn');
+    const errorMsg = document.getElementById('errorMsg');
+    const result   = document.getElementById('result');
+
+    // Reset UI
+    errorMsg.classList.remove('visible');
+    result.classList.remove('visible');
+
+    // Client-side validation
+    if (isNaN(lat) || isNaN(lon)) {
+      showError('❌ Please enter valid latitude and longitude values.');
+      return;
+    }
+    if (lat < 17 || lat > 27 || lon < 74 || lon > 85) {
+      showError('❌ Coordinates are outside the Madhya Pradesh region (Lat 17–27, Lon 74–85).');
+      return;
+    }
+
+    btn.disabled   = true;
+    btn.innerText  = '⏳ Predicting…';
+
+    try {
+      const res = await fetch('http://127.0.0.1:8000/predict', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ latitude: lat, longitude: lon, daynight })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `Server error (${res.status})`);
+      }
+
+      const data = await res.json();
+      renderResult(data);
+
+    } catch (err) {
+      showError('❌ ' + (err.message || 'Backend not reachable. Make sure the API is running.'));
+    } finally {
+      btn.disabled  = false;
+      btn.innerText = '🔥 Predict Fire Risk';
+    }
+  }
+
+  function renderResult(data) {
+    const level = (data.fire_risk_level || '').toLowerCase();
+    const card  = document.getElementById('card');
+
+    document.getElementById('res-location').textContent = data.location;
+    document.getElementById('res-frp').textContent      = data.frp_prediction + ' MW';
+    document.getElementById('res-actual').textContent   = data.nearest_actual_frp + ' MW';
+    document.getElementById('res-date').textContent     = data.data_date || '—';
+
+    // Badge
+    const badgeClass = level === 'high' ? 'badge-high'
+                     : level === 'medium' ? 'badge-medium'
+                     : 'badge-low';
+    const emoji = level === 'high' ? '🔴' : level === 'medium' ? '🟡' : '🟢';
+    document.getElementById('res-badge').innerHTML =
+      `<span class="badge ${badgeClass}">${emoji} ${data.fire_risk_level}</span>`;
+
+    // Card glow
+    card.style.boxShadow =
+      level === 'high'   ? '0 0 45px rgba(239,68,68,0.6)'   :
+      level === 'medium' ? '0 0 35px rgba(250,204,21,0.5)'  :
+                           '0 0 25px rgba(34,197,94,0.4)';
+
+    // Thresholds legend
+    if (data.thresholds) {
+      document.getElementById('thr-q1').textContent  = data.thresholds.low_max;
+      document.getElementById('thr-q2').textContent  = data.thresholds.medium_max;
+      document.getElementById('thr-q2b').textContent = data.thresholds.medium_max;
+      document.getElementById('legend').style.display = 'block';
+    }
+
+    document.getElementById('result').classList.add('visible');
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('errorMsg');
+    el.textContent = msg;
+    el.classList.add('visible');
+  }
+</script>
+
+</body>
+</html>
